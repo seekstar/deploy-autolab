@@ -1,0 +1,107 @@
+services:
+  redis:
+    container_name: redis
+    image: redis:latest
+    deploy:
+      replicas: 1
+  tango:
+    container_name: tango
+    ports:
+      - '3000:3000'
+    build:
+      context: ./Tango
+    depends_on:
+      - redis
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./Tango/config.py:/opt/TangoService/Tango/config.py
+      - ./Tango/volumes:/opt/TangoService/Tango/volumes
+    environment:
+      - DOCKER_DEPLOYMENT
+      - RESTFUL_KEY
+      - DOCKER_REDIS_HOSTNAME
+      # Path to volumes within the Tango container. Does not need to be modified.
+      - DOCKER_VOLUME_PATH
+      # Modify the below to be the path to volumes on your host machine
+      - DOCKER_TANGO_HOST_VOLUME_PATH
+
+  autolab:
+    container_name: autolab
+    depends_on:
+      - mysql
+      - certbot
+    ports:
+      - '27952:80'
+      - '29282:443'
+    build: ./Autolab
+
+    # Some volume mappings may seem redundant, but we want to make it explicit
+    volumes:
+      - ./Autolab/db:/home/app/webapp/db
+      - ./Autolab/config/database.yml:/home/app/webapp/config/database.yml
+      - ./Autolab/config/environments/production.rb:/home/app/webapp/config/environments/production.rb
+      - ./Autolab/config/autogradeConfig.rb:/home/app/webapp/config/autogradeConfig.rb
+      - ./Autolab/config/oauth_config.yml:/home/app/webapp/config/oauth_config.yml
+      - ./Autolab/config/github_config.yml:/home/app/webapp/config/github_config.yml
+      - ./Autolab/config/smtp_config.yml:/home/app/webapp/config/smtp_config.yml
+      - ./Autolab/courses:/home/app/webapp/courses
+      - ./Autolab/courseConfig:/home/app/webapp/courseConfig
+      - ./Autolab/assessmentConfig:/home/app/webapp/assessmentConfig
+      - ./Autolab/storage:/home/app/webapp/storage
+      - ./ssl/certbot/conf:/etc/letsencrypt
+      - ./ssl/certbot/www:/var/www/certbot
+
+      # Uncomment the below if you are using your own certificate
+      - /root/.acme.sh/autolab_domain_ecc/fullchain.cer:/etc/letsencrypt/live/autolab_domain/fullchain.pem
+      - /root/.acme.sh/autolab_domain_ecc/autolab_domain.key:/etc/letsencrypt/live/autolab_domain/privkey.pem
+      - ./ssl/ssl-dhparams.pem:/etc/letsencrypt/ssl-dhparams.pem
+
+      # Comment the below out to disable SSL (not recommended)
+      - ./nginx/app.conf:/etc/nginx/sites-enabled/webapp.conf
+
+      # Uncomment the below to disable SSL (not recommended)
+      # - ./nginx/no-ssl-app.conf:/etc/nginx/sites-enabled/webapp.conf
+
+    environment:
+      - DOCKER_SSL
+      - RESTFUL_HOST
+      - RESTFUL_PORT
+      - RESTFUL_KEY
+      - SMTP_SETTINGS_ADDRESS
+      - SMTP_SETTINGS_PORT
+      - SMTP_SETTINGS_ENABLE_STARTTLS_AUTO
+      - SMTP_SETTINGS_AUTHENTICATION
+      - SMTP_SETTINGS_USER_NAME
+      - SMTP_SETTINGS_PASSWORD
+      - SMTP_SETTINGS_DOMAIN
+      - SMTP_DEFAULT_FROM
+      - HOST_PROTOCOL
+      - HOST_DOMAIN
+      - GITHUB_CLIENT_ID
+      - GITHUB_CLIENT_SECRET
+      - SECRET_KEY_BASE
+      - LOCKBOX_MASTER_KEY
+      - DEVISE_SECRET_KEY
+
+  mysql:
+    container_name: mysql
+    image: mysql/mysql-server:latest
+    environment:
+      - MYSQL_DATABASE
+      - MYSQL_ROOT_PASSWORD
+      - MYSQL_HOST
+      - MYSQL_PORT
+      - MYSQL_USER
+      - MYSQL_PASSWORD
+    volumes:
+      - mysql-db:/var/lib/mysql
+
+  certbot:
+    container_name: certbot
+    image: certbot/certbot
+    volumes:
+      - ./ssl/certbot/conf:/etc/letsencrypt
+      - ./ssl/certbot/www:/var/www/certbot
+
+volumes:
+  mysql-db:

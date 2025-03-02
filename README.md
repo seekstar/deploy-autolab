@@ -14,4 +14,4 @@ Currently only support debian:
 
 ## LICENSE
 
-This project is licensed under Mozilla Public License Version 2.0.
+This project is licensed under the MIT license.
